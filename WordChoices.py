@@ -11,6 +11,15 @@ class word_predictor:
 		self.words[LITERAL] = word(LITERAL)
 		return self.words[LITERAL]
 
+	#create new entries in the dictionary for very common pairings
+	def consolidate(self):
+		#check all entries in the dictionary to see if there are very common pairings
+		for word_literal, word_object in self.words.items():
+			for each_possible_next_word in word_object.nexts:
+				if each_possible_next_word[1] > 10:
+					new_word = add_word(word_literal+" "+each_possible_next_word[0].literal)
+					word_object.increment_likelihood(new_word,10)
+
 	# function that takes a string as an argument, removes all punctuation, and then returns the split string as a list of individual literals.
 	def stll(self,STRING):
 		#turn a string into a literals list
@@ -22,6 +31,8 @@ class word_predictor:
 	def read_text(self,STRING):
 		literals_list = self.stll(STRING)
 		for i in range(0,len(literals_list)):
+			
+			#first we'll check for individual word matches
 			lit = literals_list[i]
 			if lit not in self.words:
 				self.add_word(lit)
@@ -29,7 +40,26 @@ class word_predictor:
 				this_word = self.words[lit]
 				prev_word = self.words[literals_list[i-1]]
 				prev_word.increment_likelihood(this_word)
+
+				#now we're going to check for matches of word pairs.
+				#this code fits here logically because we would only ever check for this if we were past the first word and had a "previous word" in the sequence to refer to.
+				if i < len(literals_list)-1:
+
+					#store the pair
+					lit_pair = literals_list[i]+" "+literals_list[i+1]
+					if lit_pair not in self.words:
+						#add the word pair to the dictionary if it doesn't already exist
+						self.add_word(lit_pair)
+
+					#since we've gotten here (in the logic), it means there is a word pair in the dictionary, so we can reference it
+					this_word_pair = self.words[lit_pair]
+					prev_word.increment_likelihood(this_word_pair)
+
+				#sort all the previous word's followers based on likelihood
 				prev_word.sort_nexts()
+
+		#consolidate the dictionary
+		self.consolidate()
 
 	#load the dictionary object from an external file, or create a new dictionary if there is no existing file.
 	def load_word_bank(self):
@@ -92,12 +122,12 @@ class word:
 		return -1
 
 	#increase the likelihood of a certain word occurring after this word
-	def increment_likelihood(self,WORD):
+	def increment_likelihood(self,WORD,value=1):
 		index = self.find_duple_containing_word(WORD)
 		if index != -1:
-			self.nexts[index][1] += 1
+			self.nexts[index][1] += value
 		else:
-			self.nexts.append([WORD,1])
+			self.nexts.append([WORD,value])
 
 #show a message that says, "Press any key to continue."
 def any_key_message():
