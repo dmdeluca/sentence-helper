@@ -220,6 +220,7 @@ def main_loop():
 	counter = 0
 	possible_next_words = []
 	max_words = 8
+	partials = 0
 
 	#some basic ascii variables
 	first_valid_character = 32
@@ -250,7 +251,10 @@ def main_loop():
 				if key-zero_character >= 0 and key-zero_character < 10 and possible_next_words != [] and key-zero_character <= len(possible_next_words):
 
 					#and if all these conditions are met, add the chosen word to the built string
-					str_accum = str_accum.strip() +" "+ predictor.words[possible_next_words[key-zero_character-1].literal].literal
+					if partials == 1:
+						str_accum = str_accum.strip() + predictor.words[possible_next_words[key-zero_character-1].literal].literal[len(last_word):]
+					else:
+						str_accum = str_accum.strip() +" "+ predictor.words[possible_next_words[key-zero_character-1].literal].literal
 			else:
 
 				#else, just add a character like normal
@@ -273,9 +277,10 @@ def main_loop():
 			chr_sq = ['\\','|','/','-']
 			word_sq = ['','*MUNCH*',' *MUNCH*','','','']
 			while len(str_accum) > 0:
+				os.system("cls")
 				print(str_accum+chr_sq[len(str_accum) % 4]+word_sq[len(str_accum) % 5]+" "*100,end='\r')
-				str_accum = str_accum[:-int(math.ceil(len(str_accum))/50)]
-				time.sleep(0.1)
+				str_accum = str_accum[:-int(math.ceil(len(str_accum)/50))]
+				time.sleep(0.01)
 			os.system("cls")
 			str_accum = ""
 
@@ -295,6 +300,10 @@ def main_loop():
 			split_word_list = clean(str_accum).strip().split(' ')
 			#store the last word in the cleaned string, for clean code
 			last_word = split_word_list[len(split_word_list)-1]
+			#store the second-to-last word because we'll need it for auto-complete later...but only if there are at least two words in the split string. Otherwise we get an out-of-range error.
+			if len(split_word_list)-2 > 0:
+				second_to_last_word = split_word_list[len(split_word_list)-2]
+			#self-explanatory...now we are checking to see if last_word is one of our recognized words
 			if last_word in predictor.words:
 				#store the list of next possible words to make code cleaner-looking
 				nx = predictor.words[last_word].nexts
@@ -303,6 +312,19 @@ def main_loop():
 					#display up to a maximum number of words
 					possible_next_words = [nx[i][0] for i in range(0,min(len(nx),max_words+1))]
 					print_it = 1
+					partials = 0
+			#so, it's clear that "last word" is either not a recognized word or is just not a complete word
+			else:
+				#is it the beginning of any word in the dictionary?
+				possible_next_words = []
+				for word_literal, word_object in predictor.words.items():
+					#if the word-partial is in one of our dictionary words, list that dictionary word
+					#limit the number of results to max_words
+					if word_literal.find(last_word) != -1 and len(possible_next_words) < max_words:
+						#add the word to the list of possible words
+						possible_next_words.append(word_object)
+						print_it = 1
+						partials = 1
 
 		#clear the screen.
 		os.system("cls")
