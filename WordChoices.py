@@ -1,5 +1,4 @@
-import pickle, sys, os, time
-import msvcrt
+import pickle, sys, os, time, msvcrt, winsound, math
 
 class word_predictor:
 
@@ -37,9 +36,11 @@ class word_predictor:
 		try:
 			with open("wordbank.sav",'rb') as file:
 				self.words = pickle.load(file)
+				return 1
 		except:
 			print("File not found. Creating first file.")
 			self.words = dict()
+			return 0
 
 	# save the dictionary object to a file.
 	def save_word_bank(self):
@@ -73,11 +74,11 @@ class word:
 		# nexts is a list of duples, each of which contains a word object and an integer which represents the number of times it has appeared after this word
 		self.nexts = []
 	
-		
+	#sort the words in word list according to their frequency number
 	def sort_nexts(self):
 		self.nexts.sort(key = lambda x:x[1],reverse = True)
 
-
+	#return the most likely words to follow a word
 	def get_most_likely(self,n):
 		self.sort_nexts()
 		return_list = [self.nexts[i][0].literal for i in range(0,min(n,len(self.nexts)))]
@@ -90,27 +91,104 @@ class word:
 				return c
 		return -1
 
+	#increase the likelihood of a certain word occurring after this word
 	def increment_likelihood(self,WORD):
-		#THISWORD and NEXTWORD are both word objects
-		#this function serves to either: add the NEXTWORD with count 1 (as duple) to THISWORD's list of NEXTs, or increase the count of the NEXTWORD duple in THISWORD's list of nexts
 		index = self.find_duple_containing_word(WORD)
 		if index != -1:
-			#increase likelihood
 			self.nexts[index][1] += 1
 		else:
-			#add the duple with word NEXTWORD and count 1
 			self.nexts.append([WORD,1])
+
+#show a message that says, "Press any key to continue."
+def any_key_message():
+	nothing = input("\nPress any key to continue. ")
+
+#Print messages slowly.
+def slow_message(STRING):
+	print(STRING)
+	time.sleep(1.5)
+
+#self-explanatory
+def happy_sound():
+	play_tones([0,4,7,12],[150],2)
+	time.sleep(.5)
+
+#display an ironic loading bar with optional musical interlude
+def fake_loading_bar(gradient=50,loading_message="LOADING",loaded_message="LOADING COMPLETE",invert=0,load_tones=[0,4,7,9,14]):
+	
+	if invert:
+		load_tones.reverse()
+
+	for i in range(0,gradient):
+
+		winsound.Beep(int(2**math.floor(i/gradient*10/(len(load_tones)-1))*220*2**(load_tones[int((i+i/gradient)%(len(load_tones)))]/12)),100)
+
+		print("LOADING: "+"#"*int((i+1)/gradient*20)+">"+"-"*int((gradient-i-1)/gradient*20),end='\r')
+
+		time.sleep(.5/gradient)
+
+	print("\n"+loaded_message)
+
+	happy_sound()
+
+def play_tones(tone_list,duration_list=[100],octave=1):
+	
+	#this function takes a list of tones and a list of durations and produces a series of windows beeps to match.
+	tl = tone_list
+	dl = duration_list
+	
+	#this makes the two lists equal in length.
+	while len(tl) > len(dl):
+		dl.append(dl[0])
+	while len(dl) > len(tl):
+		dl.append(0)
+	
+	#both lists should be equal now
+	for i in range(len(tl)):
+		winsound.Beep(int(octave*220*2**(tl[i%(len(tl))]/12)),dl[i])
+		winsound.SND_ASYNC
+
+#remove all the punctuation from a string
+def clean(STRING):
+	punctuation_marks = ['.',',',"!","?"]
+	clean_string = STRING
+	for p in punctuation_marks:
+		clean_string.replace(p,"")
+	return clean_string
 
 def main_loop():
 
+	#welcome message
+	slow_message("Hi, and welcome to this little word suggester app. Let me check to see if we have been working on a library together.")
+
+	any_key_message()
+
+	fake_loading_bar(35,"Searching for our past conversations...","Search complete!"+" "*100,0,[0,7,12,16])
+
 	#fire up the word predictor object
 	predictor = word_predictor()
-	predictor.load_word_bank()
-	
-	#plus some other vars
+	load_success = predictor.load_word_bank()
+
+	if load_success:
+		slow_message("\nLooks like we have been talking for a while already. Let's just keep the conversation going.")
+	else:
+		slow_message("\nLooks like we've never spoken before in our lives. Let's fix that! I made a new save file just for us. <3")
+
+	any_key_message()
+
+	slow_message("\nLet's get to know each other a bit. All you need to do is type sentences to me in the console. I'll read whatever you write, and then sometimes I'll try to finish your sentences like a true robot companion would.")
+
+	slow_message("\nAll this will disappear when you press enter.")
+
+	any_key_message()
+
+	os.system("cls")
+
+	#get some other vars ready
 	user_input = ''
 	str_accum = ""
 	counter = 0
+	possible_next_words = []
 
 	#some basic ascii variables
 	first_valid_character = 32
@@ -126,13 +204,16 @@ def main_loop():
 		x = msvcrt.getch()
 
 		# if the key pressed corresponds to an acceptable word character, then we'll take it in and look at it. If it's not a number, we'll just add it to the working string. If it is a number, though, we will use it to choose the next word in the input string.
-		if ord(x) >= first_valid_character and ord(x) <= last_valid_character:
-			if ord(x) >= zero_character and ord(x) <= nine_character:
-				if ord(x)-zero_character >= len(possible_next_words):
-					str_accum += predictor.words[possible_next_words[ord(x)-zero_character]]
+
+		key = ord(x)
+
+		if key >= first_valid_character and key <= last_valid_character:
+			if key >= zero_character and key <= nine_character:
+				if key-zero_character >= 0 and key-zero_character < 10 and possible_next_words != [] and key-zero_character <= len(possible_next_words):
+					str_accum = str_accum.strip() +" "+ predictor.words[possible_next_words[key-zero_character-1].literal].literal
 			else:
-				str_accum += chr(ord(x))
-		elif ord(x) == 13:
+				str_accum += chr(key)
+		elif key == 13:
 			predictor.read_text(str_accum)
 			os.system("cls")
 			print("Read new text and updated dictionary.")
@@ -144,7 +225,8 @@ def main_loop():
 				str_accum = str_accum[:-1]
 				time.sleep(0.01)
 			os.system("cls")
-		elif ord(x) == 27:
+			str_accum = ""
+		elif key == 27:
 			break
 
 		#we have to do manual backspaces because we're updating the console in real time. I think...?
@@ -154,7 +236,7 @@ def main_loop():
 		#generate a list of word suggestions based on the last word in the typed sentence.
 		possible_next_words = []
 		if str_accum != "":
-			split_word_list = str_accum.strip().split(' ')
+			split_word_list = clean(str_accum).strip().split(' ')
 			last_word = split_word_list[len(split_word_list)-1]
 			if last_word in predictor.words:
 				if len(predictor.words[last_word].nexts)>0:
@@ -166,7 +248,7 @@ def main_loop():
 
 		#get the length of the base string we've been accumulating.
 		base = str_accum+"_ --> "
-		base_len = len(base)-1
+		base_len = len(base)
 
 		#now, if there is a list of words we need to print, we print it as a little list on the right hand side of the sentence.
 		if print_it:
