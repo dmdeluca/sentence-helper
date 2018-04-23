@@ -1,4 +1,4 @@
-import pickle, sys, os, time, msvcrt, winsound, math
+import pickle, sys, os, time, msvcrt, winsound, math, random
 
 class word_predictor:
 
@@ -163,7 +163,7 @@ def main_loop():
 
 	any_key_message()
 
-	fake_loading_bar(35,"Searching for our past conversations...","Search complete!"+" "*100,0,[0,7,12,16])
+	fake_loading_bar(35,"Searching for our past conversations...","\nSearch complete!"+" "*100,0,[0,7,12,16])
 
 	#fire up the word predictor object
 	predictor = word_predictor()
@@ -189,6 +189,7 @@ def main_loop():
 	str_accum = ""
 	counter = 0
 	possible_next_words = []
+	max_words = 8
 
 	#some basic ascii variables
 	first_valid_character = 32
@@ -199,33 +200,56 @@ def main_loop():
 	#begin a loop
 	while True:
 		
+		#reset this every key_press
 		print_it = 0
 		
+		#store the keypress value
 		x = msvcrt.getch()
 
 		# if the key pressed corresponds to an acceptable word character, then we'll take it in and look at it. If it's not a number, we'll just add it to the working string. If it is a number, though, we will use it to choose the next word in the input string.
 
 		key = ord(x)
 
+		#check to see whether the key pressed was an acceptable word character
 		if key >= first_valid_character and key <= last_valid_character:
+
+			#check to see if it's a number
 			if key >= zero_character and key <= nine_character:
+
+				#check to see if it's one of the numbers listed
 				if key-zero_character >= 0 and key-zero_character < 10 and possible_next_words != [] and key-zero_character <= len(possible_next_words):
+
+					#and if all these conditions are met, add the chosen word to the built string
 					str_accum = str_accum.strip() +" "+ predictor.words[possible_next_words[key-zero_character-1].literal].literal
 			else:
+
+				#else, just add a character like normal
 				str_accum += chr(key)
+
+		#special condition: the user has pressed ENTER!
 		elif key == 13:
+
+			#ingest the typed string and alter the dictionary accordingly.
 			predictor.read_text(str_accum)
+
+			#clear the screen to make way for the next message
 			os.system("cls")
-			print("Read new text and updated dictionary.")
-			time.sleep(1)
+			slow_message("Read new text and updated dictionary.")
+
+			#clear that screen again
 			os.system("cls")
+
 			#do a little eye-candy thing where the previous sentence disappears one character at a time.
+			chr_sq = ['\\','|','/','-']
+			word_sq = ['','*MUNCH*',' *MUNCH*','','','']
 			while len(str_accum) > 0:
-				print(str_accum+" "*100,end='\r')
-				str_accum = str_accum[:-1]
-				time.sleep(0.01)
+				print(str_accum+chr_sq[len(str_accum) % 4]+word_sq[len(str_accum) % 5]+" "*100,end='\r')
+				str_accum = str_accum[:-int(math.ceil(len(str_accum))/50)]
+				time.sleep(0.1)
 			os.system("cls")
 			str_accum = ""
+
+		#special condition: escape key is pressed. this means we're done.
 		elif key == 27:
 			break
 
@@ -233,14 +257,21 @@ def main_loop():
 		if ord(x) == 8:
 			str_accum = str_accum[:-1]
 
-		#generate a list of word suggestions based on the last word in the typed sentence.
+		# generate a list of word suggestions based on the last word in the typed sentence.
+		# update 4-23-18: display a maximum of 8 words.
 		possible_next_words = []
 		if str_accum != "":
+			#split up the typed string into an indexable list
 			split_word_list = clean(str_accum).strip().split(' ')
+			#store the last word in the cleaned string, for clean code
 			last_word = split_word_list[len(split_word_list)-1]
 			if last_word in predictor.words:
-				if len(predictor.words[last_word].nexts)>0:
-					possible_next_words = [predictor.words[last_word].nexts[i][0] for i in range(0,len(predictor.words[last_word].nexts))]
+				#store the list of next possible words to make code cleaner-looking
+				nx = predictor.words[last_word].nexts
+				#only display next possible words if there is actually a typed string
+				if len(nx)>0:
+					#display up to a maximum number of words
+					possible_next_words = [nx[i][0] for i in range(0,min(len(nx),max_words+1))]
 					print_it = 1
 
 		#clear the screen.
@@ -263,6 +294,8 @@ def main_loop():
 	# clear the screen.
 	os.system("cls")
 
+	#save the word bank.
 	predictor.save_word_bank()
 
+#run the program
 main_loop()
