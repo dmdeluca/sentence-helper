@@ -183,24 +183,4 @@ def main_loop():
 
 	predictor.save_word_bank()
 
-
-#def do_main_program():
-	
-	#predictor = word_predictor()
-	#predictor.load_word_bank()
-	#user_input = "#"
-	#
-	#while (user_input != 'quit'):
-	#	if user_input != '':
-	#		if user_input == 'print':
-	#			predictor.print_dictionary()
-	#		elif user_input.split(' ')[0] == 'next':
-	#			word_ = user_input.split(' ')[1]
-	#			if word_ in words:
-	#				predictor.print_nexts(word_)
-	#			predictor.read_text(user_input)
-	#	user_input = input("Enter sentence or say 'quit': ")
-	#
-	#predictor.save_word_bank()
-
 main_loop()
